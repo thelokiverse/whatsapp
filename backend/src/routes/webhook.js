@@ -20,6 +20,7 @@ router.post('/webhook', async (req, res) => {
   // Ack immediately - Meta expects a fast 200 and will retry/disable the
   // webhook if we're slow, regardless of how long our own processing takes.
   res.sendStatus(200);
+  console.log('Webhook POST received:', JSON.stringify(req.body));
 
   try {
     const value = req.body?.entry?.[0]?.changes?.[0]?.value;
