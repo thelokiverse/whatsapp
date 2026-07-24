@@ -88,6 +88,22 @@ exercise-library.json  # fixed, human-curated exercise data (never LLM-generated
    ```
 5. Check it's alive: `curl http://localhost:3000/health`
 
+## Gotcha: WhatsApp's 24-hour session window
+
+The Cloud API only allows free-form (non-template) messages within 24 hours of the recipient
+last messaging the business number — otherwise sends fail with error `131047`
+("Re-engagement message"), even though the API call itself returns a success response with a
+message ID. This makes send failures easy to miss: check the `statuses` webhook payload (not
+just the initial send response) to catch them. In production this is handled by having the
+recipient message in first, or by using pre-approved message templates outside the window.
+
+## Gotcha: webhook field subscription is separate from callback verification
+
+Verifying the webhook callback URL (the `GET` handshake with `hub.challenge`) only proves Meta
+can reach your endpoint — it does not subscribe you to any events. In the Meta App dashboard,
+under WhatsApp → Configuration, the `messages` field must also be explicitly subscribed, or no
+webhook calls will ever arrive despite a "verified" callback URL.
+
 ## Security / hygiene notes
 
 - All secrets live in `.env`, which is gitignored and never committed.
@@ -107,8 +123,8 @@ This project is built incrementally and verified phase by phase:
 5. **Dashboard** — read-only caregiver view: adherence, streaks, calendar heatmap.
 6. **Real rollout** — onboarding real recipients, after their explicit verbal consent.
 
-Current status: **Phase 1 (Foundation) complete.** Backend deployed and verified live on Render,
-connected to Supabase Postgres.
+Current status: **Phase 2 (WhatsApp connectivity) complete.** Webhook verified end-to-end:
+outbound send confirmed delivered, inbound replies confirmed received and logged.
 
 ## Gotcha: Supabase direct connection vs. connection pooler
 
