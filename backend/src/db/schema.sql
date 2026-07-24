@@ -27,6 +27,11 @@ create table if not exists daily_plans (
   unique (care_recipient_id, date)
 );
 
+-- When the initial "ready to start?" prompt was sent, and when the 2hr no-response
+-- nudge was sent (if it was) - drives the follow-up/timeout logic in Section 6.
+alter table daily_plans add column if not exists prompt_sent_at timestamptz;
+alter table daily_plans add column if not exists followup_sent_at timestamptz;
+
 create table if not exists session_logs (
   id uuid primary key default gen_random_uuid(),
   daily_plan_id uuid not null references daily_plans(id) on delete cascade,

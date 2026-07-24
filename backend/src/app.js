@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const healthRouter = require('./routes/health');
 const webhookRouter = require('./routes/webhook');
+const triggerRouter = require('./routes/trigger');
 
 function createApp() {
   const app = express();
@@ -10,6 +11,7 @@ function createApp() {
 
   app.use(healthRouter);
   app.use(webhookRouter);
+  app.use(triggerRouter);
 
   return app;
 }
