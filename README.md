@@ -123,8 +123,10 @@ This project is built incrementally and verified phase by phase:
 5. **Dashboard** — read-only caregiver view: adherence, streaks, calendar heatmap.
 6. **Real rollout** — onboarding real recipients, after their explicit verbal consent.
 
-Current status: **Phase 2 (WhatsApp connectivity) complete.** Webhook verified end-to-end:
-outbound send confirmed delivered, inbound replies confirmed received and logged.
+Current status: **Phase 3 (conversation state machine) complete.** Full reply-driven flow
+verified end-to-end for one hardcoded test recipient: initial prompt → YES → exercise loop
+(DONE/SKIP) → closing message with streak, plus the unrecognized-reply nudge and the 2-hour
+follow-up / 9:30pm cutoff timeout logic (`backend/scripts/test-edge-cases.js`).
 
 ## Gotcha: Supabase direct connection vs. connection pooler
 
