@@ -23,8 +23,18 @@ router.post('/webhook', async (req, res) => {
 
   try {
     const value = req.body?.entry?.[0]?.changes?.[0]?.value;
+
+    if (value?.statuses) {
+      for (const status of value.statuses) {
+        console.log(
+          `Delivery status: message ${status.id} to ${status.recipient_id} -> ${status.status}` +
+            (status.errors ? ` errors=${JSON.stringify(status.errors)}` : '')
+        );
+      }
+    }
+
     const messages = value?.messages;
-    if (!messages || messages.length === 0) return; // e.g. delivery/read status updates
+    if (!messages || messages.length === 0) return; // e.g. delivery/read status updates only
 
     for (const message of messages) {
       const from = `+${message.from}`;
