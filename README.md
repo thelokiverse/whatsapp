@@ -107,4 +107,13 @@ This project is built incrementally and verified phase by phase:
 5. **Dashboard** — read-only caregiver view: adherence, streaks, calendar heatmap.
 6. **Real rollout** — onboarding real recipients, after their explicit verbal consent.
 
-Current status: **Phase 1 (Foundation) in progress.**
+Current status: **Phase 1 (Foundation) complete.** Backend deployed and verified live on Render,
+connected to Supabase Postgres.
+
+## Gotcha: Supabase direct connection vs. connection pooler
+
+Supabase's "direct connection" host (`db.<ref>.supabase.co`) resolves to an IPv6 address only.
+Render's free tier egress is IPv4-only, so the direct connection string works locally (if your
+machine has IPv6) but fails to connect from Render. Use Supabase's **connection pooler** string
+instead (`Project Settings > Database > Connect > Connection pooling`), which resolves to IPv4
+addresses and works from both environments.
