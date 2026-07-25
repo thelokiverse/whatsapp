@@ -28,6 +28,15 @@ function createApp() {
     app.get('*', (req, res) => res.sendFile(path.join(DASHBOARD_DIST, 'index.html')));
   }
 
+  // Catches errors forwarded by asyncHandler (and anything passed to next())
+  // so a single bad request returns a 500 instead of crashing the process -
+  // this same process also runs the WhatsApp bot for real users.
+  app.use((err, req, res, next) => {
+    console.error('Unhandled request error:', err);
+    if (res.headersSent) return next(err);
+    res.status(500).json({ error: 'Internal server error' });
+  });
+
   return app;
 }
 
