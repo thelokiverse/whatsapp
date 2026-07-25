@@ -49,8 +49,16 @@ function computeStreakFromPlans(planRows, todayStr) {
 // "Does this person need me to step in?" signals - the one thing the old
 // dashboard didn't have at all. Computed from the same allPlanRows already
 // fetched for the streak, so no extra query.
-function computeAlerts(allPlanRows, todayStr) {
+function computeAlerts(allPlanRows, todayStr, failedMessageCount) {
   const alerts = [];
+
+  if (failedMessageCount > 0) {
+    alerts.push({
+      type: 'send_failed',
+      count: failedMessageCount,
+      message: `${failedMessageCount} message${failedMessageCount > 1 ? 's' : ''} failed to send recently - this may look like they're not responding when they never actually got a message`,
+    });
+  }
 
   let noResponseStreak = 0;
   let cursor = todayStr;
@@ -161,6 +169,12 @@ router.get(
       ...catalogRows.map((row) => [row.id, row.name]),
     ]);
 
+    const { rows: failedRows } = await pool.query(
+      `select count(*)::int as count from message_log
+       where care_recipient_id = $1 and send_failed = true and created_at > now() - interval '3 days'`,
+      [id]
+    );
+
     const completedCount = planRows.filter((r) => r.status === 'completed').length;
     const createdDateStr = dateStringInTimezone(recipient.created_at, recipient.timezone);
 
@@ -170,7 +184,7 @@ router.get(
       adherencePct: Math.round((completedCount / days) * 100),
       currentStreak: computeStreakFromPlans(allPlanRows, todayStr),
       calendar: buildCalendar(days, planRows, todayStr, createdDateStr),
-      alerts: computeAlerts(allPlanRows, todayStr),
+      alerts: computeAlerts(allPlanRows, todayStr, failedRows[0].count),
       adherenceTrend: computeAdherenceTrend(allPlanRows, todayStr),
       responseTiming: await computeResponseTiming(id, todayStr),
       mostSkipped: skippedRows.map((row) => ({
@@ -180,6 +194,19 @@ router.get(
         framing: `This exercise has been skipped ${row.skip_count} times - it may be uncomfortable for them`,
       })),
     });
+  })
+);
+
+router.get(
+  '/api/recipients/:id/failed-messages',
+  asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+      `select body, created_at from message_log
+       where care_recipient_id = $1 and send_failed = true
+       order by created_at desc limit 20`,
+      [req.params.id]
+    );
+    res.json(rows);
   })
 );
 

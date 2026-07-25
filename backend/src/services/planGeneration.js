@@ -113,6 +113,20 @@ async function resolveMediaForPlan(days) {
       'select gif_url, video_media_id, video_url, source from exercise_catalog where lower(name) = lower($1) limit 1',
       [name]
     );
+    if (rows[0]?.gif_url) {
+      // The catalog row's video_media_id was valid when first resolved, but
+      // WhatsApp media IDs expire (~30 days) - re-check media_cache rather
+      // than trusting a possibly-stale id forever. getOrUploadMediaId already
+      // re-uploads and refreshes the cache if the entry is missing/expired.
+      try {
+        const freshMediaId = await getOrUploadMediaId(rows[0].gif_url);
+        mediaByName.set(name, { ...rows[0], video_media_id: freshMediaId });
+      } catch (err) {
+        console.warn(`Media refresh failed for "${name}", reusing possibly-stale id: ${err.message}`);
+        mediaByName.set(name, rows[0]);
+      }
+      continue;
+    }
     if (rows[0]) {
       mediaByName.set(name, rows[0]);
       continue;

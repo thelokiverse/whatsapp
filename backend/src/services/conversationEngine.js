@@ -8,28 +8,35 @@ const { localDateString, dateStringInTimezone, localTimeString, addDaysToDateStr
 const FOLLOWUP_AFTER_MS = 2 * 60 * 60 * 1000; // 2 hours
 const CUTOFF_TIME = '21:30'; // no further nagging past this local time
 
+// Retry-once for transient failures already happens inside whatsapp/client.js.
+// This catches whatever still fails after that and logs it as a distinct
+// send_failed row - without this, a failing send never reaches message_log
+// at all, and a caregiver has no way to tell "they ignored it" apart from
+// "it never arrived".
 async function sendAndLog(recipient, body) {
-  const messageId = await sendText(recipient.phone_number, body);
-  await logMessage({
-    careRecipientId: recipient.id,
-    direction: 'out',
-    body,
-    whatsappMessageId: messageId,
-  });
-  return messageId;
+  try {
+    const messageId = await sendText(recipient.phone_number, body);
+    await logMessage({ careRecipientId: recipient.id, direction: 'out', body, whatsappMessageId: messageId });
+    return messageId;
+  } catch (err) {
+    console.error(`Send failed for ${recipient.phone_number}: ${err.message}`);
+    await logMessage({ careRecipientId: recipient.id, direction: 'out', body, sendFailed: true });
+    throw err;
+  }
 }
 
 // header: optional { type: 'video', mediaId } - passed straight through to
 // sendInteractiveButtons; omitted for exercises with no resolved media yet.
 async function sendButtonsAndLog(recipient, body, buttons, header) {
-  const messageId = await sendInteractiveButtons(recipient.phone_number, body, buttons, header);
-  await logMessage({
-    careRecipientId: recipient.id,
-    direction: 'out',
-    body,
-    whatsappMessageId: messageId,
-  });
-  return messageId;
+  try {
+    const messageId = await sendInteractiveButtons(recipient.phone_number, body, buttons, header);
+    await logMessage({ careRecipientId: recipient.id, direction: 'out', body, whatsappMessageId: messageId });
+    return messageId;
+  } catch (err) {
+    console.error(`Send failed for ${recipient.phone_number}: ${err.message}`);
+    await logMessage({ careRecipientId: recipient.id, direction: 'out', body, sendFailed: true });
+    throw err;
+  }
 }
 
 // exerciseId is either a v1 exercise_library text ID (e.g. "ex_01") or a v2

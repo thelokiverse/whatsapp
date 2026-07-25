@@ -4,7 +4,7 @@ function apiUrl() {
   return `https://graph.facebook.com/${GRAPH_API_VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 }
 
-async function postMessage(payload) {
+async function postOnce(payload) {
   const res = await fetch(apiUrl(), {
     method: 'POST',
     headers: {
@@ -15,10 +15,25 @@ async function postMessage(payload) {
   });
 
   const data = await res.json();
-  if (!res.ok) {
-    throw new Error(`WhatsApp send failed: ${JSON.stringify(data)}`);
+  return { ok: res.ok, status: res.status, data };
+}
+
+// Retries once on a transient failure (429 rate limit, 5xx) after a short
+// delay - a genuinely bad request (invalid number, bad token) fails the same
+// way twice, so this only helps the transient case, not a design to paper
+// over real errors.
+async function postMessage(payload) {
+  let result = await postOnce(payload);
+
+  if (!result.ok && (result.status === 429 || result.status >= 500)) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    result = await postOnce(payload);
   }
-  return data.messages?.[0]?.id || null;
+
+  if (!result.ok) {
+    throw new Error(`WhatsApp send failed: ${JSON.stringify(result.data)}`);
+  }
+  return result.data.messages?.[0]?.id || null;
 }
 
 async function sendText(to, body) {

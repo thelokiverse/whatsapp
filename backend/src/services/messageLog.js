@@ -8,11 +8,18 @@ async function findRecipientByPhone(phoneNumber) {
   return rows[0] || null;
 }
 
-async function logMessage({ careRecipientId, direction, body, whatsappMessageId }) {
+async function logMessage({ careRecipientId, direction, body, whatsappMessageId, sendFailed }) {
   await pool.query(
-    `insert into message_log (care_recipient_id, direction, body, whatsapp_message_id)
-     values ($1, $2, $3, $4)`,
-    [careRecipientId, direction, body, whatsappMessageId || null]
+    `insert into message_log (care_recipient_id, direction, body, whatsapp_message_id, send_failed, retry_at)
+     values ($1, $2, $3, $4, $5, $6)`,
+    [
+      careRecipientId,
+      direction,
+      body,
+      whatsappMessageId || null,
+      !!sendFailed,
+      sendFailed ? new Date(Date.now() + 5 * 60 * 1000) : null,
+    ]
   );
 }
 

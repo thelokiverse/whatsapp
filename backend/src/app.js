@@ -15,7 +15,10 @@ const DASHBOARD_DIST = path.join(__dirname, '../../dashboard/dist');
 function createApp() {
   const app = express();
   app.use(cors());
-  app.use(express.json());
+  // Preserves the raw request body alongside the parsed JSON - the webhook's
+  // HMAC signature check needs the exact bytes Meta signed, not a
+  // re-serialized copy (which can differ in key order/whitespace).
+  app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 
   app.use(healthRouter);
   app.use(webhookRouter);
