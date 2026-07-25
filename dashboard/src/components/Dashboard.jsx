@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getRecipients, getRecipientStats } from '../api';
 import CalendarHeatmap from './CalendarHeatmap';
+import AlertBanner from './AlertBanner';
+import AdherenceTrend from './AdherenceTrend';
+import ResponseTiming from './ResponseTiming';
 
 export default function Dashboard() {
   const [recipients, setRecipients] = useState([]);
@@ -65,37 +68,40 @@ export default function Dashboard() {
           </div>
 
           {stats && (
-            <div className="stats-grid">
-              <div className="stat-card">
-                <span className="stat-value">{stats.adherencePct}%</span>
-                <span className="stat-label">Adherence ({stats.days}d)</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-value">{stats.currentStreak}</span>
-                <span className="stat-label">Day streak</span>
-              </div>
+            <>
+              <AlertBanner alerts={stats.alerts} />
 
-              <div className="card wide">
-                <h2>Calendar</h2>
-                <CalendarHeatmap calendar={stats.calendar} />
-              </div>
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <span className="stat-value">{stats.currentStreak}</span>
+                  <span className="stat-label">Day streak</span>
+                </div>
 
-              <div className="card wide">
-                <h2>Most-skipped exercises</h2>
-                {stats.mostSkipped.length === 0 ? (
-                  <p className="muted">No skips in this range.</p>
-                ) : (
-                  <ul className="skip-list">
-                    {stats.mostSkipped.map((ex) => (
-                      <li key={ex.exerciseId}>
-                        <span>{ex.name}</span>
-                        <span className="skip-count">{ex.skipCount}x</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <AdherenceTrend trend={stats.adherenceTrend} />
+                <ResponseTiming timing={stats.responseTiming} />
+
+                <div className="card wide">
+                  <h2>Calendar</h2>
+                  <CalendarHeatmap calendar={stats.calendar} />
+                </div>
+
+                <div className="card wide">
+                  <h2>Most-skipped exercises</h2>
+                  {stats.mostSkipped.length === 0 ? (
+                    <p className="muted">No skips worth flagging in this range.</p>
+                  ) : (
+                    <ul className="skip-list">
+                      {stats.mostSkipped.map((ex) => (
+                        <li key={ex.exerciseId} title={ex.framing}>
+                          <span>{ex.name}</span>
+                          <span className="skip-count">{ex.skipCount}x</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </>
       )}
