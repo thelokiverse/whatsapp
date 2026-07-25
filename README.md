@@ -104,6 +104,20 @@ can reach your endpoint — it does not subscribe you to any events. In the Meta
 under WhatsApp → Configuration, the `messages` field must also be explicitly subscribed, or no
 webhook calls will ever arrive despite a "verified" callback URL.
 
+## Gotcha: WhatsApp's Media API rejects animated GIFs outright
+
+Exercise demo GIFs (from the WorkoutX exercise API) can't be sent to WhatsApp as-is - the
+Cloud API's Media upload endpoint only accepts `image/jpeg`, `image/png`, `image/webp`,
+`video/mp4`, and `video/3gpp` for images/video (confirmed by testing, not just docs: a raw
+`image/gif` upload attempt returns a `400` naming the exact allowed list). There's no
+"animated image" type. Fix: convert the GIF to a small MP4 with `ffmpeg-static` (a bundled
+static binary - no system-level `ffmpeg` install needed, works on Render's free tier) before
+uploading, then use the interactive message's `header.type: "video"` (not `"image"`) with
+the resulting WhatsApp media ID. Also note: WorkoutX's own `gifUrl` requires their API key
+to fetch (401 without it, via the `X-WorkoutX-Key` header or an `api-key` query param) - so
+GIFs must be downloaded server-side with our key, never passed through to WhatsApp as a
+public link directly.
+
 ## Security / hygiene notes
 
 - All secrets live in `.env`, which is gitignored and never committed.
@@ -123,10 +137,16 @@ This project is built incrementally and verified phase by phase:
 5. **Dashboard** — read-only caregiver view: adherence, streaks, calendar heatmap.
 6. **Real rollout** — onboarding real recipients, after their explicit verbal consent.
 
-Current status: **Phase 5 (caregiver dashboard) complete.** React (Vite) dashboard - login,
-adherence %, streak, calendar heatmap, most-skipped exercises - built and served as static
-files by the same Express backend (no separate hosting service), verified live end-to-end
-against real Phase 3/4 test data.
+Current status: **v2 in progress - Phase 6 (WhatsApp UX overhaul) complete.** WhatsApp
+replies now use native interactive buttons (Yes/Not now, Done/Skip/Watch Video) instead of
+free-text matching, with the old fuzzy `classifyIntent()` kept only as a fallback for users
+who type instead of tapping. Verified live end-to-end on a real WhatsApp number: full
+session from initial prompt through buttons to the closing message, including the "Watch
+Video" no-media fallback.
+
+See [`v2-build-brief.md`](v2-build-brief.md) for the full v2 scope (Phases 6-9): WhatsApp UX
+overhaul, real onboarding with AI-generated exercise plans, a redesigned caregiver
+dashboard, and reliability hardening.
 
 ## Gotcha: Gemini model names churn quickly - verify against the live API, not docs
 
