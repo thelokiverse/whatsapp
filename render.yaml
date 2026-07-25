@@ -22,3 +22,5 @@ services:
         sync: false
       - key: TRIGGER_SECRET
         sync: false
+      - key: WORKOUTX_API_KEY
+        sync: false
