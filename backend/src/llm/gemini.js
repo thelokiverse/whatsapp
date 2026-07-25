@@ -1,6 +1,6 @@
 const { GoogleGenAI } = require('@google/genai');
 
-const MODEL = 'gemini-2.5-flash';
+const MODEL = 'gemini-3.5-flash';
 
 function buildPrompt(profile, filteredExercises, recentHistory) {
   return `You are selecting exercises for a senior citizen's daily low-impact exercise routine.

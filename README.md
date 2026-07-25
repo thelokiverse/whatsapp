@@ -123,10 +123,28 @@ This project is built incrementally and verified phase by phase:
 5. **Dashboard** — read-only caregiver view: adherence, streaks, calendar heatmap.
 6. **Real rollout** — onboarding real recipients, after their explicit verbal consent.
 
-Current status: **Phase 3 (conversation state machine) complete.** Full reply-driven flow
-verified end-to-end for one hardcoded test recipient: initial prompt → YES → exercise loop
-(DONE/SKIP) → closing message with streak, plus the unrecognized-reply nudge and the 2-hour
-follow-up / 9:30pm cutoff timeout logic (`backend/scripts/test-edge-cases.js`).
+Current status: **Phase 4 (LLM plan generation) complete.** Contraindication filtering and
+selection validated against 4 fake profiles (`backend/scripts/test-plan-selection.js`) before
+ever touching the live message flow.
+
+## Gotcha: Gemini model names churn quickly - verify against the live API, not docs
+
+`gemini-2.5-flash` (the model shown in the SDK's own README example, and in most tutorials as of
+mid-2026) returned `404 "no longer available to new users"` for a freshly created API key.
+`gemini-2.0-flash` and `gemini-2.5-flash-lite` were also unavailable. Don't trust a model name
+from documentation or search results without checking - call `GET /v1beta/models` with your
+actual key to see what your account can use, and smoke-test `generateContent` directly against a
+candidate before wiring it into application code:
+
+```bash
+curl "https://generativelanguage.googleapis.com/v1beta/models?key=$GEMINI_API_KEY" \
+  | jq -r '.models[] | select(.supportedGenerationMethods[]? == "generateContent") | .name'
+```
+
+This project ended up on `gemini-3.5-flash`. Also expect occasional transient `503 UNAVAILABLE`
+("high demand") errors - the rotation fallback in `planSelection.js` handles these the same way
+as an invalid response, by design (see Section 7 of the build brief: don't retry the LLM
+indefinitely).
 
 ## Gotcha: Supabase direct connection vs. connection pooler
 
