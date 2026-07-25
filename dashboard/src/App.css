@@ -1,0 +1,259 @@
+.login-page {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.login-card h1 {
+  font-size: 24px;
+  text-align: center;
+}
+
+.subtitle {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.login-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.login-card input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  font-size: 15px;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.login-card button,
+.day-toggle button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--accent);
+  color: white;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.login-card button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--text);
+  text-decoration: underline;
+  font-size: 14px;
+}
+
+.dashboard-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  text-align: left;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.dashboard-header h1 {
+  font-size: 22px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.controls select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-h);
+  font-size: 15px;
+}
+
+.day-toggle {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.day-toggle button {
+  background: var(--card-bg);
+  color: var(--text);
+}
+
+.day-toggle button.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.stat-card,
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.stat-label {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.card.wide {
+  grid-column: 1 / -1;
+}
+
+.heatmap-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.heatmap-cell {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--status-none);
+}
+
+.heatmap-cell.status-completed {
+  background: var(--status-completed);
+}
+.heatmap-cell.status-skipped {
+  background: var(--status-skipped);
+}
+.heatmap-cell.status-no_response {
+  background: var(--status-no_response);
+}
+.heatmap-cell.status-in_progress {
+  background: var(--status-in_progress);
+}
+.heatmap-cell.status-sent {
+  background: var(--status-sent);
+}
+.heatmap-cell.status-pending {
+  background: var(--status-pending);
+}
+
+.heatmap-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legend-swatch.status-completed {
+  background: var(--status-completed);
+}
+.legend-swatch.status-skipped {
+  background: var(--status-skipped);
+}
+.legend-swatch.status-no_response {
+  background: var(--status-no_response);
+}
+.legend-swatch.status-none {
+  background: var(--status-none);
+}
+
+.skip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skip-list li {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.skip-count {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.muted {
+  font-size: 14px;
+}

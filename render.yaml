@@ -3,7 +3,7 @@ services:
     name: whatsapp-flow-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install
+    buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /health
     plan: free
@@ -19,4 +19,6 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: JWT_SECRET
+        sync: false
+      - key: TRIGGER_SECRET
         sync: false
