@@ -1,5 +1,6 @@
 const { pool } = require('../config/db');
 const { selectExercisesWithLLM } = require('../llm/gemini');
+const { localDateString } = require('../utils/time');
 
 const MIN_EXERCISES = 3;
 const MAX_EXERCISES = 4;
@@ -58,12 +59,12 @@ async function pickExercisesForProfile(profile, allExercises, recentHistory) {
   return rotationFallback(filtered, recentHistory);
 }
 
-async function getRecentHistory(careRecipientId, days = 2) {
+async function getRecentHistory(careRecipientId, todayStr, days = 2) {
   const { rows } = await pool.query(
     `select exercise_ids from daily_plans
-     where care_recipient_id = $1 and date < current_date
-     order by date desc limit $2`,
-    [careRecipientId, days]
+     where care_recipient_id = $1 and date < $2
+     order by date desc limit $3`,
+    [careRecipientId, todayStr, days]
   );
   return rows.flatMap((row) => row.exercise_ids);
 }
@@ -72,7 +73,7 @@ async function getRecentHistory(careRecipientId, days = 2) {
 async function selectExercisesForToday(recipient) {
   const { rows: allExercises } = await pool.query('select data from exercise_library');
   const exercises = allExercises.map((row) => row.data);
-  const recentHistory = await getRecentHistory(recipient.id);
+  const recentHistory = await getRecentHistory(recipient.id, localDateString(recipient.timezone));
 
   const selected = await pickExercisesForProfile(recipient, exercises, recentHistory);
   if (selected.length === 0) {

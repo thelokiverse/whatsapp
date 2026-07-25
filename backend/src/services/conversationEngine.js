@@ -3,7 +3,7 @@ const { sendText } = require('../whatsapp/client');
 const { logMessage } = require('./messageLog');
 const { classifyIntent } = require('./intent');
 const { selectExercisesForToday } = require('./planSelection');
-const { localDateString, localTimeString } = require('../utils/time');
+const { localDateString, localTimeString, addDaysToDateString } = require('../utils/time');
 
 const FOLLOWUP_AFTER_MS = 2 * 60 * 60 * 1000; // 2 hours
 const CUTOFF_TIME = '21:30'; // no further nagging past this local time
@@ -80,21 +80,16 @@ async function sendExerciseAtIndex(recipient, plan, index) {
 async function computeStreak(recipient) {
   const { rows } = await pool.query(
     `select date from daily_plans
-     where care_recipient_id = $1 and status = 'completed'
-     order by date desc`,
+     where care_recipient_id = $1 and status = 'completed'`,
     [recipient.id]
   );
 
+  const completedDates = new Set(rows.map((row) => row.date));
   let streak = 0;
-  let expected = new Date(localDateString(recipient.timezone));
-  for (const row of rows) {
-    const rowDate = new Date(row.date);
-    if (rowDate.getTime() === expected.getTime()) {
-      streak += 1;
-      expected.setDate(expected.getDate() - 1);
-    } else {
-      break;
-    }
+  let expected = localDateString(recipient.timezone);
+  while (completedDates.has(expected)) {
+    streak += 1;
+    expected = addDaysToDateString(expected, -1);
   }
   return streak;
 }

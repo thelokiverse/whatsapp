@@ -13,4 +13,13 @@ function localTimeString(timezone) {
   });
 }
 
-module.exports = { localDateString, localTimeString };
+// Pure "YYYY-MM-DD" string arithmetic, anchored at UTC noon so a +/-1 day
+// shift can never cross into the adjacent date due to a timezone offset.
+// Use this instead of `new Date(dateStr)` + setDate() for calendar-day math.
+function addDaysToDateString(dateStr, delta) {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+module.exports = { localDateString, localTimeString, addDaysToDateString };
