@@ -6,12 +6,14 @@ const { mapMedicalConditionsToTags } = require('../llm/gemini');
 const { generateRotationPlan, approveRotation, swapExercise } = require('../services/planGeneration');
 const { CONTRAINDICATION_TAGS } = require('../services/contraindicationTags');
 const { sendInteractiveButtons } = require('../whatsapp/client');
+const { logMessage } = require('../services/messageLog');
 
 const router = express.Router();
 router.use('/api/onboarding', requireAuth);
 
 const E164_RE = /^\+[1-9]\d{6,14}$/;
 const ACTIVITY_LEVELS = new Set(['not_active', 'somewhat_active', 'very_active']);
+const GENDERS = new Set(['female', 'male', 'other']);
 // v1's mobility_level is still required by the schema and still drives the
 // no-rotation fallback path in planSelection.js - map the new caregiver-facing
 // activity_level onto it once at creation rather than making two parallel
@@ -38,7 +40,7 @@ router.post(
   '/api/onboarding/create-recipient',
   asyncHandler(async (req, res) => {
     const {
-      name, phoneNumber, age, heightCm, weightKg, activityLevel,
+      name, phoneNumber, age, gender, heightCm, weightKg, activityLevel,
       medicalConditions, preferredTime, timezone, consentGiven,
     } = req.body || {};
 
@@ -50,6 +52,9 @@ router.post(
     }
     if (!Number.isInteger(age) || age <= 0) {
       return res.status(400).json({ error: 'age must be a positive integer' });
+    }
+    if (!GENDERS.has(gender)) {
+      return res.status(400).json({ error: 'gender must be one of female, male, other' });
     }
     if (!ACTIVITY_LEVELS.has(activityLevel)) {
       return res.status(400).json({ error: 'activityLevel must be one of not_active, somewhat_active, very_active' });
@@ -74,12 +79,12 @@ router.post(
     try {
       const { rows } = await pool.query(
         `insert into care_recipients
-           (name, phone_number, age, height_cm, weight_kg, activity_level, mobility_level,
+           (name, phone_number, age, gender, height_cm, weight_kg, activity_level, mobility_level,
             medical_conditions, preferred_time, timezone, consent_given, consent_given_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, now())
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, now())
          returning *`,
         [
-          name, phoneNumber, age, heightCm || null, weightKg || null, activityLevel,
+          name, phoneNumber, age, gender, heightCm || null, weightKg || null, activityLevel,
           MOBILITY_LEVEL_BY_ACTIVITY[activityLevel], JSON.stringify(tags), preferredTime, timezone,
         ]
       );
@@ -164,18 +169,28 @@ router.post(
     const recipient = rows[0];
     if (!recipient) return res.status(404).json({ error: 'Recipient not found' });
 
+    const body = `Hi ${recipient.name}! This is a test message from your exercise reminder service - just confirming everything's set up correctly.`;
+
     try {
-      await sendInteractiveButtons(
-        recipient.phone_number,
-        `Hi ${recipient.name}! This is a test message from your exercise reminder service - just confirming everything's set up correctly.`,
-        [{ id: 'yes', title: 'Got it!' }]
-      );
+      const messageId = await sendInteractiveButtons(recipient.phone_number, body, [{ id: 'yes', title: 'Got it!' }]);
+      await logMessage({ careRecipientId: recipient.id, direction: 'out', body, whatsappMessageId: messageId });
       res.json({ sent: true });
     } catch (err) {
-      // Surface WhatsApp delivery failures (bad number, not in allowed list on
-      // a test app, expired token, etc.) as a clear message rather than a raw
-      // 500 - this is a real caregiver-facing action, not an internal error.
+      // Surface WhatsApp delivery failures as a clear message rather than a
+      // raw 500 - this is a real caregiver-facing action, not an internal
+      // error. Also actually log the failure (previously this route never
+      // called logMessage at all, so a failed test send left no trace).
       console.warn(`Test message send failed for ${recipient.phone_number}: ${err.message}`);
+      await logMessage({ careRecipientId: recipient.id, direction: 'out', body, sendFailed: true });
+
+      // Error 131047 specifically means the recipient has never messaged this
+      // WhatsApp number first - free-form messages (including this test one)
+      // are only allowed within 24h of the customer initiating contact.
+      if (err.message.includes('131047')) {
+        return res.status(502).json({
+          error: `WhatsApp blocked this message because ${recipient.name} hasn't messaged this WhatsApp number yet. Have them send any message (e.g. "Hi") to the number first, then try again.`,
+        });
+      }
       res.status(502).json({ error: `WhatsApp delivery failed: ${err.message}` });
     }
   })

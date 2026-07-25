@@ -1,5 +1,7 @@
-// Resolves a WorkoutX GIF URL to a WhatsApp media ID, caching the result so the
-// same exercise doesn't get re-downloaded/re-converted/re-uploaded on every send.
+// Resolves a source GIF URL (Wikimedia Commons, per the CDC exercise library -
+// see services/cdcExerciseLibrary.js) to a WhatsApp media ID, caching the
+// result so the same exercise doesn't get re-downloaded/re-converted/
+// re-uploaded on every send.
 //
 // WhatsApp's Media API only accepts image/jpeg, image/png, image/webp, video/mp4,
 // and video/3gpp - it rejects image/gif outright (confirmed by testing, not just
@@ -31,11 +33,15 @@ async function getCachedMediaId(sourceUrl) {
   return rows[0]?.whatsapp_media_id || null;
 }
 
+// Wikimedia asks bots/scripts to identify themselves with a descriptive
+// User-Agent (see https://meta.wikimedia.org/wiki/User-Agent_policy) -
+// requests without one are more likely to be rate-limited.
+const FETCH_USER_AGENT = 'WhatsAppFlowExerciseBot/1.0 (personal senior-fitness project)';
+
 async function downloadGif(gifUrl) {
-  const apiKey = process.env.WORKOUTX_API_KEY;
-  const res = await fetch(gifUrl, { headers: { 'X-WorkoutX-Key': apiKey } });
+  const res = await fetch(gifUrl, { headers: { 'User-Agent': FETCH_USER_AGENT } });
   if (!res.ok) {
-    throw new Error(`Failed to download GIF from WorkoutX: ${res.status}`);
+    throw new Error(`Failed to download GIF from ${gifUrl}: ${res.status}`);
   }
   return Buffer.from(await res.arrayBuffer());
 }

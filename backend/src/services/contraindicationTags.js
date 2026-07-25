@@ -21,28 +21,4 @@ const CONTRAINDICATION_TAGS = [
   'breathing_condition',
 ];
 
-// Deterministic, keyword-based mapping from a contraindication tag to the
-// area/name keywords that would trigger it. Used to infer contraindication_tags
-// for a Gemini-generated exercise (which has no tags of its own) and to
-// re-check the final plan against a recipient's conditions - per the brief,
-// this is a real validation step, not just a prompt instruction. Deliberately
-// coarse/conservative: a false-positive drop (regenerating a slot that was
-// actually fine) is a far smaller risk than a false negative.
-const AREA_KEYWORDS_BY_TAG = {
-  knee_pain: ['knee'],
-  severe_knee_pain: ['knee'],
-  hip_pain: ['hip'],
-  recent_hip_surgery: ['hip'],
-  shoulder_injury: ['shoulder'],
-  recent_back_surgery: ['back', 'spine', 'core'],
-  back_pain: ['back', 'spine'],
-  balance_disorder: ['balance'],
-  severe_vertigo: ['balance', 'vertigo'],
-  cardiac_condition: ['cardio'],
-  severe_cardiac_condition: ['cardio'],
-  recent_neck_injury: ['neck'],
-  osteoporosis: ['jump', 'impact'],
-  breathing_condition: ['cardio'],
-};
-
-module.exports = { CONTRAINDICATION_TAGS, AREA_KEYWORDS_BY_TAG };
+module.exports = { CONTRAINDICATION_TAGS };

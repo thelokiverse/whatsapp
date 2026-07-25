@@ -11,6 +11,7 @@ export default function PlanReview() {
   const [catalog, setCatalog] = useState([]);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const [message, setMessage] = useState(null);
   const [swapTarget, setSwapTarget] = useState(null); // { dayOffset, exerciseIndex }
 
@@ -70,15 +71,18 @@ export default function PlanReview() {
 
   async function handleRegenerate() {
     setBusy(true);
+    setRegenerating(true);
     setError(null);
     setMessage(null);
     try {
       await generatePlan(recipientId);
+      setMessage('Plan regenerated.');
       load();
     } catch (err) {
       setError(err.message);
     } finally {
       setBusy(false);
+      setRegenerating(false);
     }
   }
 
@@ -96,10 +100,15 @@ export default function PlanReview() {
 
       {error && <p className="error">{error}</p>}
       {message && <p className="success-message">{message}</p>}
+      {regenerating && (
+        <p className="muted">Regenerating the plan - this takes a minute or two, please wait...</p>
+      )}
 
       <div className="plan-actions">
         <button disabled={busy} onClick={handleSendTest}>Send test message</button>
-        <button disabled={busy} className="secondary" onClick={handleRegenerate}>Regenerate plan</button>
+        <button disabled={busy} className="secondary" onClick={handleRegenerate}>
+          {regenerating ? 'Regenerating...' : 'Regenerate plan'}
+        </button>
         {rotation.status !== 'active' && (
           <button disabled={busy} onClick={handleApprove}>Approve plan</button>
         )}

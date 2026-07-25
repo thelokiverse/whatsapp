@@ -106,33 +106,37 @@ webhook calls will ever arrive despite a "verified" callback URL.
 
 ## Gotcha: WhatsApp's Media API rejects animated GIFs outright
 
-Exercise demo GIFs (from the WorkoutX exercise API) can't be sent to WhatsApp as-is - the
-Cloud API's Media upload endpoint only accepts `image/jpeg`, `image/png`, `image/webp`,
-`video/mp4`, and `video/3gpp` for images/video (confirmed by testing, not just docs: a raw
-`image/gif` upload attempt returns a `400` naming the exact allowed list). There's no
-"animated image" type. Fix: convert the GIF to a small MP4 with `ffmpeg-static` (a bundled
-static binary - no system-level `ffmpeg` install needed, works on Render's free tier) before
-uploading, then use the interactive message's `header.type: "video"` (not `"image"`) with
-the resulting WhatsApp media ID. Also note: WorkoutX's own `gifUrl` requires their API key
-to fetch (401 without it, via the `X-WorkoutX-Key` header or an `api-key` query param) - so
-GIFs must be downloaded server-side with our key, never passed through to WhatsApp as a
-public link directly.
+Exercise demo GIFs can't be sent to WhatsApp as-is - the Cloud API's Media upload endpoint
+only accepts `image/jpeg`, `image/png`, `image/webp`, `video/mp4`, and `video/3gpp` for
+images/video (confirmed by testing, not just docs: a raw `image/gif` upload attempt returns a
+`400` naming the exact allowed list). There's no "animated image" type. Fix: convert the GIF
+to a small MP4 with `ffmpeg-static` (a bundled static binary - no system-level `ffmpeg`
+install needed, works on Render's free tier) before uploading, then use the interactive
+message's `header.type: "video"` (not `"image"`) with the resulting WhatsApp media ID.
 
-## Gotcha: WorkoutX's exercise search is exact-substring, not fuzzy
+## Design decision: exercise media is a fixed CDC library, not a matched external API
 
-`GET /v1/exercises?name=...` only matches a literal substring of the exercise name, and the
-dataset itself skews toward a general gym-equipment catalog (Barbell/Cable/Lever variants
-dominate) rather than senior-friendly plain names. Multi-word AI-generated names like "Seated
-Marching" or "Chair Sit-to-Stand" very often return zero results even though the underlying
-movement exists under a different name. `workoutxClient.js` handles this with two query
-attempts (the full name, then a qualifier-stripped phrase) and - more importantly - hard
-filters (and a name-overlap check) rather than "best of the results" scoring: a match must be
-`difficulty: beginner` + `equipment: Body Weight`, non-plyometric, non-vigorous, *and* share a
-real word with the proposed name. Early attempts without the overlap check produced matches
-like "Wall Push-ups" → "Butt-ups" - technically "qualified" by the safety filters but a
-completely different exercise. Expect a real hit rate around 15-25%; everything else falls
-back to text-only, which is the intended, safer outcome per the brief ("better a missing GIF
-than a broken/wrong one").
+The original design (Gemini freely generates exercise names → resolve each to media via a
+general-purpose exercise API) was replaced after a real usability test with an actual elderly
+recipient surfaced two problems: the matched demo GIFs featured a heavily-built bodybuilder
+model - discouraging and unrelatable for this audience - and were sometimes a different,
+more demanding variation than the text instructions described (low match-accuracy against a
+gym-equipment-skewed dataset).
+
+The fix: `services/cdcExerciseLibrary.js` is a small, hand-curated set of 19 exercises sourced
+from the CDC's public-domain "Growing Stronger: Strength Training for Older Adults" program
+(hosted on Wikimedia Commons, filmed with actual older-adult demonstrators, no API key or
+rate limit). Gemini now **selects and sequences** from this fixed list (closer to the
+project's original v1 design) instead of freely generating exercise names to be matched
+against an external database - eliminating the accuracy problem structurally rather than
+tuning around it. Each exercise's media is resolved once (globally, not per-recipient) and
+cached in `exercise_catalog`/`media_cache`, so after the first-ever generation, every
+subsequent recipient or regeneration just reuses it.
+
+Wikimedia asks bots/scripts to send a descriptive `User-Agent` header (see their
+[User-Agent policy](https://meta.wikimedia.org/wiki/User-Agent_policy)) - requests without
+one are more likely to get rate-limited (`429`), which is exactly what happened while manually
+verifying all 19 GIF URLs existed in one quick burst during development.
 
 ## Security / hygiene notes
 

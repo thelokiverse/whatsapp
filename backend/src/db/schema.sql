@@ -73,11 +73,15 @@ alter table care_recipients add column if not exists consent_given boolean not n
 alter table care_recipients add column if not exists consent_given_at timestamptz;
 alter table care_recipients add column if not exists activity_level text
   check (activity_level in ('not_active', 'somewhat_active', 'very_active'));
+alter table care_recipients add column if not exists gender text
+  check (gender in ('female', 'male', 'other'));
 
--- Replaces exercise_library for new (rotation-based) plans. Exercises are now
--- proposed by Gemini and resolved to real media via the WorkoutX exercise API,
--- rather than hand-typed. exercise_library stays untouched as the fallback
--- path for any recipient without an active plan_rotations row.
+-- Replaces exercise_library for new (rotation-based) plans. Originally seeded
+-- from Gemini-generated names resolved to media via the WorkoutX exercise API;
+-- now seeded from a fixed, hand-curated CDC senior-exercise library instead
+-- (see services/cdcExerciseLibrary.js and its README gotcha) - exercise_library
+-- stays untouched as the fallback path for any recipient without an active
+-- plan_rotations row.
 create table if not exists exercise_catalog (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -85,14 +89,21 @@ create table if not exists exercise_catalog (
   target_area text not null,
   simple_instruction text not null,
   duration_or_reps text not null,
-  gif_url text, -- WorkoutX's source URL, kept for reference/re-conversion, not sent directly to WhatsApp
+  gif_url text, -- source URL, kept for reference/re-conversion, not sent directly to WhatsApp
   video_media_id text, -- WhatsApp media ID for the converted mp4 (see whatsapp/mediaCache.js)
   video_url text, -- optional external video link (e.g. YouTube), shown as text, not uploaded
   source text not null default 'gemini'
-    check (source in ('workoutx', 'gemini', 'fallback_text_only')),
+    check (source in ('workoutx', 'gemini', 'fallback_text_only', 'cdc')),
   contraindication_tags jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now()
 );
+
+-- Widen the check constraint for existing databases created before 'cdc' was
+-- added as a valid source (add column if not exists doesn't cover altering
+-- an existing check constraint, so this is handled explicitly).
+alter table exercise_catalog drop constraint if exists exercise_catalog_source_check;
+alter table exercise_catalog add constraint exercise_catalog_source_check
+  check (source in ('workoutx', 'gemini', 'fallback_text_only', 'cdc'));
 
 create index if not exists idx_exercise_catalog_name on exercise_catalog (lower(name));
 

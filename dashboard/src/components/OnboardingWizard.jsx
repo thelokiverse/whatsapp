@@ -8,6 +8,12 @@ const ACTIVITY_LEVELS = [
   { value: 'very_active', label: 'Very active' },
 ];
 
+const GENDERS = [
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
+  { value: 'other', label: 'Other' },
+];
+
 const STEPS = ['basic_info', 'health_profile', 'tag_confirmation', 'consent', 'generating'];
 
 export default function OnboardingWizard() {
@@ -20,6 +26,7 @@ export default function OnboardingWizard() {
     name: '',
     phoneNumber: '',
     age: '',
+    gender: 'female',
     heightCm: '',
     weightKg: '',
     activityLevel: 'somewhat_active',
@@ -80,6 +87,7 @@ export default function OnboardingWizard() {
         name: form.name,
         phoneNumber: form.phoneNumber,
         age: Number(form.age),
+        gender: form.gender,
         heightCm: form.heightCm ? Number(form.heightCm) : null,
         weightKg: form.weightKg ? Number(form.weightKg) : null,
         activityLevel: form.activityLevel,
@@ -126,6 +134,14 @@ export default function OnboardingWizard() {
               value={form.age}
               onChange={(e) => updateField('age', e.target.value)}
             />
+          </label>
+          <label>
+            Gender
+            <select value={form.gender} onChange={(e) => updateField('gender', e.target.value)}>
+              {GENDERS.map((g) => (
+                <option key={g.value} value={g.value}>{g.label}</option>
+              ))}
+            </select>
           </label>
           <div className="wizard-actions">
             <button

@@ -47,110 +47,75 @@ async function selectExercisesWithLLM(profile, filteredExercises, recentHistory)
   return JSON.parse(response.text);
 }
 
-const EXERCISE_SCHEMA = {
+// Structured output is a plain list of exercise IDs per day, in a fixed
+// positional order: [warmup, warmup, main, main, cooldown]. Gemini can only
+// select from the fixed CDC library passed into the prompt (see
+// cdcExerciseLibrary.js and planGeneration.js) - it never generates exercise
+// names, instructions, or media. This replaced an earlier design where
+// Gemini freely generated exercise names to be matched against an external
+// API, which had two real problems found during use with an actual elderly
+// recipient: the matched media was often visually inappropriate/mismatched,
+// and match rates were low given the mismatch between AI-generated names and
+// the external dataset's naming/content.
+const DAY_PLAN_SCHEMA = {
   type: 'object',
   properties: {
-    name: { type: 'string' },
-    session_role: { type: 'string', enum: ['warmup', 'main', 'cooldown'] },
-    target_area: { type: 'string' },
-    simple_instruction: { type: 'string' },
-    duration_or_reps: { type: 'string' },
-    youtube_url: { type: 'string' },
+    day_offset: { type: 'integer' },
+    exercise_ids: { type: 'array', items: { type: 'string' } },
   },
-  required: ['name', 'session_role', 'target_area', 'simple_instruction', 'duration_or_reps'],
+  required: ['day_offset', 'exercise_ids'],
 };
-
-const SAFETY_RULES = `Safety rules - these are absolute, non-negotiable constraints:
-- No jumping, plyometric, or explosive movements of any kind.
-- No floor get-ups or any exercise that requires getting up from lying on the floor
-  without a chair/support to push off from.
-- No heavy free weights (barbells, heavy dumbbells) - bodyweight, light resistance
-  bands, or a light household object (e.g. a water bottle) only.
-- No high-impact cardio (running, jogging, sprinting, jump rope).
-- Every exercise must be doable seated, standing with chair/wall support, or lying
-  on a bed - appropriate for a frail-to-average-fitness older adult.`;
-
-function buildMultiWeekPrompt(profile, numDays) {
-  return `You are designing a ${numDays}-day low-impact exercise rotation for a senior citizen.
-
-Person's profile:
-${JSON.stringify(profile)}
-
-Contraindication tags to strictly avoid triggering (do not propose any exercise that would
-stress or load an area affected by these): ${JSON.stringify(profile.medical_conditions || [])}
-
-${SAFETY_RULES}
-
-Structure requirements:
-- Each day needs exactly 1 "warmup" exercise, 2 to 3 "main" exercises, and 1 "cooldown" exercise.
-- Rotate target areas across days (legs/arms/shoulders/core/balance/flexibility/cardio/back/neck)
-  rather than repeating the same focus every day.
-- Avoid using the identical set of exercises on consecutive days.
-- session_role must be one of exactly: warmup, main, cooldown.
-- For youtube_url, only include it if you are confident a real, existing YouTube video at
-  that exact URL demonstrates this exercise - otherwise omit the field. Never invent a
-  plausible-looking URL; a missing field is fine and expected.
-
-Return the full ${numDays}-day plan as structured JSON.`;
-}
 
 const PLAN_SCHEMA = {
   type: 'object',
   properties: {
-    plan: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          day_offset: { type: 'integer' },
-          exercises: { type: 'array', items: EXERCISE_SCHEMA },
-        },
-        required: ['day_offset', 'exercises'],
-      },
-    },
+    plan: { type: 'array', items: DAY_PLAN_SCHEMA },
   },
   required: ['plan'],
 };
 
-// Returns { plan: [{ day_offset, exercises: [...] }] } - raw and unvalidated.
-// Caller (planGeneration.js) runs this through the deterministic safety
-// blocklist and contraindication check before anything is saved or sent.
-async function generateMultiWeekPlan(profile, numDays = 28) {
+function buildSelectionPrompt(profile, warmups, mains, cooldowns, numDays) {
+  return `You are sequencing a ${numDays}-day exercise rotation for a senior citizen, selecting
+ONLY from a fixed, pre-approved exercise library - you may not invent, rename, or modify any
+exercise, only choose which ones to use each day and in what order.
+
+Person's profile:
+${JSON.stringify(profile)}
+
+Available warmup exercises (already filtered to exclude anything contraindicated for this
+person):
+${JSON.stringify(warmups)}
+
+Available main exercises (already filtered):
+${JSON.stringify(mains)}
+
+Available cooldown exercises (already filtered):
+${JSON.stringify(cooldowns)}
+
+For each of the ${numDays} days, choose exactly:
+- 2 warmup exercise IDs (from the warmup list above)
+- 2 main exercise IDs (from the main list above, no duplicates within the same day)
+- 1 cooldown exercise ID (from the cooldown list above)
+
+Return exercise_ids as an array of exactly 5 IDs in this exact order: [warmup, warmup, main,
+main, cooldown]. Rotate which exercises are chosen across days for variety (considering the
+person's age/height/weight/activity level), rather than repeating the identical set every
+day, though some repetition is expected given the small fixed library. Every ID must come
+from the lists above - never invent a new ID.`;
+}
+
+// Returns { plan: [{ day_offset, exercise_ids: [w, w, m, m, c] }] } - raw and
+// unvalidated. Caller (planGeneration.js) validates every ID actually exists
+// in the allowed, contraindication-filtered library and falls back to a
+// deterministic round-robin rotation if the response is malformed - this
+// function does not retry.
+async function selectCdcPlan(profile, warmups, mains, cooldowns, numDays = 28) {
   const response = await client().models.generateContent({
     model: MODEL,
-    contents: buildMultiWeekPrompt(profile, numDays),
+    contents: buildSelectionPrompt(profile, warmups, mains, cooldowns, numDays),
     config: {
       responseMimeType: 'application/json',
       responseSchema: PLAN_SCHEMA,
-    },
-  });
-
-  return JSON.parse(response.text);
-}
-
-// One replacement exercise for a single slot that failed the safety blocklist
-// or contraindication check. Capped at 1 retry by the caller - if this also
-// fails, the caller substitutes a hardcoded safe default rather than asking
-// Gemini again indefinitely.
-async function regenerateSingleExercise(profile, sessionRole, excludeNames) {
-  const prompt = `You are choosing one replacement exercise for a senior citizen's exercise
-routine. The previous suggestion for this slot was rejected as unsafe.
-
-Person's profile: ${JSON.stringify(profile)}
-Contraindication tags to avoid: ${JSON.stringify(profile.medical_conditions || [])}
-This slot's role: "${sessionRole}"
-Do not suggest any of these (already rejected or already used today): ${JSON.stringify(excludeNames)}
-
-${SAFETY_RULES}
-
-Return exactly one exercise as structured JSON.`;
-
-  const response = await client().models.generateContent({
-    model: MODEL,
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: EXERCISE_SCHEMA,
     },
   });
 
@@ -190,7 +155,6 @@ free-text description. If nothing plausibly applies, return an empty array.`;
 
 module.exports = {
   selectExercisesWithLLM,
-  generateMultiWeekPlan,
-  regenerateSingleExercise,
+  selectCdcPlan,
   mapMedicalConditionsToTags,
 };
