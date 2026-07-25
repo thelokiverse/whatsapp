@@ -210,9 +210,15 @@ async function sendClosingMessage(recipient, plan) {
 
   await pool.query(`update daily_plans set status = 'completed' where id = $1`, [plan.id]);
   const streak = await computeStreak(recipient);
-
   const streakLine = streak > 1 ? ` ${streak}-day streak!` : '';
-  const body = `Great job! You completed ${completed}/${total} exercises today.${streakLine}`;
+
+  // Per the brief's tone requirement: warm and neutral regardless of
+  // adherence, never a scold - "Great job!" for zero completions reads as
+  // hollow/insincere rather than encouraging, so it gets its own low-key variant.
+  const body =
+    completed === 0
+      ? "No worries - today wasn't the day for it. We'll be here tomorrow whenever you're ready."
+      : `Great job! You completed ${completed}/${total} exercises today.${streakLine}`;
   await sendAndLog(recipient, body);
 }
 
