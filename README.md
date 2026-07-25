@@ -125,7 +125,8 @@ This project is built incrementally and verified phase by phase:
 
 Current status: **Phase 4 (LLM plan generation) complete.** Contraindication filtering and
 selection validated against 4 fake profiles (`backend/scripts/test-plan-selection.js`) before
-ever touching the live message flow.
+ever touching the live message flow, then confirmed live end-to-end: a test recipient with
+`balance_disorder` correctly received only exercises safe for that condition, LLM-selected.
 
 ## Gotcha: Gemini model names churn quickly - verify against the live API, not docs
 
