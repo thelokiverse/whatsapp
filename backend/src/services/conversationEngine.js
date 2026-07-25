@@ -173,13 +173,19 @@ async function handleInboundReply(recipient, text) {
 
 async function triggerDailyForRecipient(recipient) {
   const existingPlan = await getTodayPlan(recipient);
-  if (existingPlan) return { recipient: recipient.name, action: 'already_planned' };
+
+  // A plan can exist but still be 'pending' if it was created but the send
+  // itself failed (e.g. an expired WhatsApp token) - retry the send rather
+  // than treating it as already handled and leaving it stuck forever.
+  if (existingPlan && existingPlan.status !== 'pending') {
+    return { recipient: recipient.name, action: 'already_planned' };
+  }
 
   const nowLocal = localTimeString(recipient.timezone);
   const preferredTime = recipient.preferred_time.slice(0, 5);
   if (nowLocal < preferredTime) return { recipient: recipient.name, action: 'not_yet_time' };
 
-  const plan = await createTodayPlan(recipient);
+  const plan = existingPlan || (await createTodayPlan(recipient));
   await sendInitialPrompt(recipient, plan);
   return { recipient: recipient.name, action: 'sent' };
 }
