@@ -123,10 +123,10 @@ This project is built incrementally and verified phase by phase:
 5. **Dashboard** — read-only caregiver view: adherence, streaks, calendar heatmap.
 6. **Real rollout** — onboarding real recipients, after their explicit verbal consent.
 
-Current status: **Phase 4 (LLM plan generation) complete.** Contraindication filtering and
-selection validated against 4 fake profiles (`backend/scripts/test-plan-selection.js`) before
-ever touching the live message flow, then confirmed live end-to-end: a test recipient with
-`balance_disorder` correctly received only exercises safe for that condition, LLM-selected.
+Current status: **Phase 5 (caregiver dashboard) complete.** React (Vite) dashboard - login,
+adherence %, streak, calendar heatmap, most-skipped exercises - built and served as static
+files by the same Express backend (no separate hosting service), verified live end-to-end
+against real Phase 3/4 test data.
 
 ## Gotcha: Gemini model names churn quickly - verify against the live API, not docs
 
@@ -154,3 +154,27 @@ Render's free tier egress is IPv4-only, so the direct connection string works lo
 machine has IPv6) but fails to connect from Render. Use Supabase's **connection pooler** string
 instead (`Project Settings > Database > Connect > Connection pooling`), which resolves to IPv4
 addresses and works from both environments.
+
+## Gotcha: pg's DATE parsing depends on the Node process's local timezone
+
+Postgres `DATE` columns come back from `node-postgres` as JS `Date` objects converted using the
+*Node process's* local timezone - not UTC, and not the database session's timezone (which is a
+third, independent value; `current_date` in SQL uses the DB server's session timezone). All
+three can disagree, so calendar-day logic (streaks, adherence, the dashboard heatmap) can be
+correct in one environment and off by a day in another. Fixed by keeping `DATE` columns as raw
+`'YYYY-MM-DD'` strings (`pg.types.setTypeParser(1082, v => v)` in `config/db.js`) and doing all
+day arithmetic with a pure string helper (`addDaysToDateString`, anchored at UTC noon) relative
+to each recipient's own `timezone` column - never relying on the server's or Postgres's notion
+of "today."
+
+## Gotcha: Express 4 async route handlers can crash the whole process
+
+An unhandled rejection inside an `async (req, res) => {...}` Express 4 route handler isn't
+caught by Express - the promise is simply discarded, and Node's default behavior since v15 is to
+crash the process on an unhandled rejection. This bit us for real: a missing `JWT_SECRET` on
+Render made `jwt.sign()` throw inside `POST /auth/login`, which killed the whole backend
+(including the WhatsApp bot running in the same process) until Render restarted it. Fixed with
+an `asyncHandler` wrapper (`middleware/asyncHandler.js`) on every async route plus a global
+Express error-handling middleware, so a bad request returns a 500 instead of taking down
+messaging for real recipients. `index.js` also logs `unhandledRejection`/`uncaughtException` as
+a last-resort safety net.
