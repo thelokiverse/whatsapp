@@ -3,7 +3,7 @@ const { sendText, sendInteractiveButtons, sendVideo } = require('../whatsapp/cli
 const { logMessage } = require('./messageLog');
 const { classifyIntent, intentFromButtonId } = require('./intent');
 const { selectExercisesForToday } = require('./planSelection');
-const { localDateString, localTimeString, addDaysToDateString } = require('../utils/time');
+const { localDateString, dateStringInTimezone, localTimeString, addDaysToDateString } = require('../utils/time');
 
 const FOLLOWUP_AFTER_MS = 2 * 60 * 60 * 1000; // 2 hours
 const CUTOFF_TIME = '21:30'; // no further nagging past this local time
@@ -32,9 +32,38 @@ async function sendButtonsAndLog(recipient, body, buttons, header) {
   return messageId;
 }
 
+// exerciseId is either a v1 exercise_library text ID (e.g. "ex_01") or a v2
+// exercise_catalog UUID - check catalog first (UUID-shaped IDs only exist
+// there), fall back to the legacy library so old daily_plans keep resolving.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function getExercise(exerciseId) {
+  if (UUID_RE.test(exerciseId)) {
+    const { rows } = await pool.query('select * from exercise_catalog where id = $1', [exerciseId]);
+    if (rows[0]) {
+      const row = rows[0];
+      return {
+        name: row.name,
+        instruction_simple: row.simple_instruction,
+        duration_or_reps: row.duration_or_reps,
+        video_media_id: row.video_media_id,
+        video_url: row.video_url,
+      };
+    }
+  }
+
   const { rows } = await pool.query('select data from exercise_library where id = $1', [exerciseId]);
   return rows[0]?.data || null;
+}
+
+async function getActiveRotation(recipientId) {
+  const { rows } = await pool.query(
+    `select * from plan_rotations
+     where care_recipient_id = $1 and status = 'active' and valid_until > now()
+     order by generated_at desc limit 1`,
+    [recipientId]
+  );
+  return rows[0] || null;
 }
 
 async function getTodayPlan(recipient) {
@@ -46,9 +75,30 @@ async function getTodayPlan(recipient) {
   return rows[0] || null;
 }
 
+// Whole-day counting (not real elapsed time) so a rotation started at any
+// time of day still lines up with day_offset 0, 1, 2, ... - matches how
+// daily_plans.date already works (one row per calendar day, not per 24h).
+function daysBetweenDateStrings(fromDateStr, toDateStr) {
+  const from = Date.UTC(...fromDateStr.split('-').map(Number));
+  const to = Date.UTC(...toDateStr.split('-').map(Number));
+  return Math.round((to - from) / (24 * 60 * 60 * 1000));
+}
+
+async function exerciseIdsForToday(recipient, todayStr) {
+  const rotation = await getActiveRotation(recipient.id);
+  if (rotation) {
+    const generatedDateStr = dateStringInTimezone(rotation.generated_at, recipient.timezone);
+    const dayOffset = daysBetweenDateStrings(generatedDateStr, todayStr) % 28;
+    const day = rotation.daily_sequences.find((d) => d.day_offset === dayOffset);
+    if (day) return day.exercise_ids;
+  }
+  // No active rotation (or offset not found) - fall back to the v1 LLM-selection path.
+  return selectExercisesForToday(recipient);
+}
+
 async function createTodayPlan(recipient) {
   const date = localDateString(recipient.timezone);
-  const exerciseIds = await selectExercisesForToday(recipient);
+  const exerciseIds = await exerciseIdsForToday(recipient, date);
   const { rows } = await pool.query(
     `insert into daily_plans (care_recipient_id, date, exercise_ids, status)
      values ($1, $2, $3, 'pending')
@@ -81,9 +131,9 @@ async function sendExerciseAtIndex(recipient, plan, index) {
   const exercise = await getExercise(exerciseId);
 
   const body = `${exercise.name}\n${exercise.instruction_simple}\n${exercise.duration_or_reps}.`;
-  // No gif_url/video_url exist on any exercise yet (Phase 6 ships against the old
-  // fixed library, whose entries are all null) - header stays omitted here, and
-  // starts getting populated once Phase 7's exercise_catalog + media cache land.
+  // video_media_id only exists for exercise_catalog rows resolved via WorkoutX
+  // (Phase 7) - legacy exercise_library rows never have one, so the header is
+  // omitted and the message ships text-only, exactly as designed.
   const header = exercise.video_media_id
     ? { type: 'video', mediaId: exercise.video_media_id }
     : undefined;
