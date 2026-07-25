@@ -118,6 +118,22 @@ to fetch (401 without it, via the `X-WorkoutX-Key` header or an `api-key` query 
 GIFs must be downloaded server-side with our key, never passed through to WhatsApp as a
 public link directly.
 
+## Gotcha: WorkoutX's exercise search is exact-substring, not fuzzy
+
+`GET /v1/exercises?name=...` only matches a literal substring of the exercise name, and the
+dataset itself skews toward a general gym-equipment catalog (Barbell/Cable/Lever variants
+dominate) rather than senior-friendly plain names. Multi-word AI-generated names like "Seated
+Marching" or "Chair Sit-to-Stand" very often return zero results even though the underlying
+movement exists under a different name. `workoutxClient.js` handles this with two query
+attempts (the full name, then a qualifier-stripped phrase) and - more importantly - hard
+filters (and a name-overlap check) rather than "best of the results" scoring: a match must be
+`difficulty: beginner` + `equipment: Body Weight`, non-plyometric, non-vigorous, *and* share a
+real word with the proposed name. Early attempts without the overlap check produced matches
+like "Wall Push-ups" → "Butt-ups" - technically "qualified" by the safety filters but a
+completely different exercise. Expect a real hit rate around 15-25%; everything else falls
+back to text-only, which is the intended, safer outcome per the brief ("better a missing GIF
+than a broken/wrong one").
+
 ## Security / hygiene notes
 
 - All secrets live in `.env`, which is gitignored and never committed.
@@ -127,26 +143,39 @@ public link directly.
 
 ## Build phases
 
-This project is built incrementally and verified phase by phase:
+This project is built incrementally and verified phase by phase.
 
+**v1:**
 1. **Foundation** — repo scaffold, DB schema, seed data, health check, deploy skeleton.
 2. **WhatsApp connectivity** — webhook wiring, manual test message, inbound reply logging.
 3. **Conversation state machine** — full reply-driven exercise flow for one recipient.
 4. **LLM plan generation** — contraindication-aware exercise selection, validated against the
    fixed library, with a rotation fallback if validation fails.
 5. **Dashboard** — read-only caregiver view: adherence, streaks, calendar heatmap.
-6. **Real rollout** — onboarding real recipients, after their explicit verbal consent.
 
-Current status: **v2 in progress - Phase 6 (WhatsApp UX overhaul) complete.** WhatsApp
-replies now use native interactive buttons (Yes/Not now, Done/Skip/Watch Video) instead of
-free-text matching, with the old fuzzy `classifyIntent()` kept only as a fallback for users
-who type instead of tapping. Verified live end-to-end on a real WhatsApp number: full
-session from initial prompt through buttons to the closing message, including the "Watch
-Video" no-media fallback.
+**v2** (see [`v2-build-brief.md`](v2-build-brief.md) for full scope):
+6. **WhatsApp UX overhaul** — native interactive buttons replace free-text matching.
+7. **Real onboarding** — a caregiver-facing wizard replaces manual DB entry; Gemini
+   generates a full 28-day exercise plan (not just selection from a fixed list), with a
+   deterministic safety blocklist, contraindication re-check, and real demo media resolved
+   via the WorkoutX API.
+8. **Dashboard redesign** — restructured around "does this person need me to step in?"
+   (alerts, adherence trend, response timing) instead of a bare adherence percentage.
+9. **Reliability** — retry logic, webhook signature verification, distinct failed-send
+   surfacing, media ID cache refresh.
 
-See [`v2-build-brief.md`](v2-build-brief.md) for the full v2 scope (Phases 6-9): WhatsApp UX
-overhaul, real onboarding with AI-generated exercise plans, a redesigned caregiver
-dashboard, and reliability hardening.
+**Not yet built:** onboarding real recipients (the user's actual parents) with their
+explicit verbal consent — the system is fully built and verified with test data, but no
+real person has been onboarded yet.
+
+Current status: **v2 complete (Phases 6-9).** WhatsApp replies use native interactive
+buttons instead of free-text matching; a real onboarding wizard generates AI-authored,
+safety-validated 28-day exercise plans with real demo media resolved via the WorkoutX API;
+the caregiver dashboard is redesigned around "does this person need me to step in?" instead
+of bare vanity metrics; and the backend has retry logic, webhook signature verification, and
+distinct failed-send surfacing. All four phases verified live against the deployed backend
+and real Gemini/WorkoutX/WhatsApp APIs. See [`v2-build-brief.md`](v2-build-brief.md) for the
+full scope.
 
 ## Gotcha: Gemini model names churn quickly - verify against the live API, not docs
 
