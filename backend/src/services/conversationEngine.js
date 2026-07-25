@@ -98,8 +98,15 @@ async function exerciseIdsForToday(recipient, todayStr) {
     const dayOffset = daysBetweenDateStrings(generatedDateStr, todayStr) % 28;
     const day = rotation.daily_sequences.find((d) => d.day_offset === dayOffset);
     if (day) return day.exercise_ids;
+    // An active rotation exists but has no entry for today's computed offset -
+    // this should never happen (planGeneration.js always emits day_offset
+    // 0..27) and silently falling through to the unrelated v1 fallback below
+    // previously masked a real bug (day_offset values not actually 0-indexed),
+    // so it's logged loudly here rather than treated as an expected case.
+    console.error(
+      `Active rotation ${rotation.id} for recipient ${recipient.id} has no day_offset=${dayOffset} - falling back to v1 selection. This indicates a bug, not expected behavior.`
+    );
   }
-  // No active rotation (or offset not found) - fall back to the v1 LLM-selection path.
   return selectExercisesForToday(recipient);
 }
 

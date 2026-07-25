@@ -26,8 +26,15 @@ function compactView(exercises) {
   return exercises.map((e) => ({ id: e.id, name: e.name, target_area: e.target_area }));
 }
 
-function isValidDay(day, warmupIds, mainIds, cooldownIds) {
-  if (!Number.isInteger(day.day_offset)) return false;
+// Deliberately ignores day.day_offset entirely - Gemini does not reliably
+// start numbering at 0 (confirmed by testing: a request for a 3-day plan
+// came back offsets 1,2,3 instead of 0,1,2). daily_plans is looked up by
+// exact day_offset match (see conversationEngine.exerciseIdsForToday), so an
+// off-by-one here doesn't error, it silently falls through to the unrelated
+// v1 fallback path instead - which is exactly what happened in production
+// (a real recipient got the old hand-typed "Seated Marching" instead of the
+// reviewed CDC plan). The caller re-indexes by array position instead.
+function isValidDayShape(day, warmupIds, mainIds, cooldownIds) {
   if (!Array.isArray(day.exercise_ids) || day.exercise_ids.length !== EXERCISES_PER_DAY) return false;
   const [w1, w2, m1, m2, c1] = day.exercise_ids;
   if (!warmupIds.has(w1) || !warmupIds.has(w2)) return false;
@@ -63,8 +70,13 @@ async function selectDaysWithFallback(profile, warmups, mains, cooldowns, numDay
     const valid =
       Array.isArray(raw.plan) &&
       raw.plan.length === numDays &&
-      raw.plan.every((d) => isValidDay(d, warmupIds, mainIds, cooldownIds));
-    if (valid) return raw.plan;
+      raw.plan.every((d) => isValidDayShape(d, warmupIds, mainIds, cooldownIds));
+    if (valid) {
+      // Re-index by array position (day_offset 0..numDays-1) - never trust
+      // Gemini's own day_offset value, only that there are exactly numDays
+      // entries in the intended order.
+      return raw.plan.map((d, i) => ({ day_offset: i, exercise_ids: d.exercise_ids }));
+    }
     console.warn('Gemini plan selection was malformed, using round-robin fallback');
   } catch (err) {
     console.warn(`Gemini plan selection failed, using round-robin fallback: ${err.message}`);
