@@ -37,4 +37,18 @@ function classifyIntent(text) {
   return 'UNKNOWN';
 }
 
-module.exports = { classifyIntent };
+const BUTTON_ID_TO_INTENT = {
+  yes: 'YES',
+  not_now: 'NOT_NOW',
+  done: 'DONE',
+  skip: 'SKIP',
+  watch_video: 'WATCH_VIDEO',
+};
+
+// Button replies are a reliable id from WhatsApp, not free text - no fuzzy
+// matching needed, just a direct lookup.
+function intentFromButtonId(buttonId) {
+  return BUTTON_ID_TO_INTENT[buttonId] || 'UNKNOWN';
+}
+
+module.exports = { classifyIntent, intentFromButtonId };

@@ -1,197 +1,318 @@
 {
-  "_notes": "Curated by a human (not LLM-generated) for safety. Each exercise has tags used by the LLM to SELECT from this list only — the LLM never invents new exercises. gif_search_query is a suggested search term for sourcing a real GIF/short clip later (e.g. from a free stock site or by filming a 10-second clip yourself). duration_or_reps is the default; the LLM can scale reps down (not up) based on profile.mobility_level.",
+  "_notes": "REPURPOSED as of v3: this file is no longer seed data loaded into the DB. Exercises are now generated dynamically by Gemini and resolved to real media via the WorkoutX exercise API + YouTube Data API (see Phase 7b of the build brief), then cached in a live exercise_catalog DB table. Keep THIS file only as a reference for the controlled vocabulary Gemini must use in its structured output and that the safety blocklist checks against: the session_role values (warmup / main / cooldown), the area values, and the contraindication tag names. The 16 sample entries below are illustrative of the shape/tagging convention, not a literal list to seed \u2014 gif_url/video_url on these samples are intentionally null since real ones are now fetched at runtime.",
   "exercises": [
     {
       "id": "ex_01",
       "name": "Seated Marching",
-      "area": ["legs", "cardio"],
+      "area": [
+        "legs",
+        "cardio"
+      ],
       "position": "seated",
       "equipment": "chair",
       "difficulty": "beginner",
       "contraindications": [],
       "duration_or_reps": "10 lifts each leg",
       "instruction_simple": "Sit tall in a chair. Lift one knee up like you're marching, then the other. Keep going slowly.",
-      "gif_search_query": "seated marching exercise seniors chair"
+      "gif_search_query": "seated marching exercise seniors chair",
+      "session_role": "warmup",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_02",
       "name": "Chair Sit-to-Stand",
-      "area": ["legs", "balance"],
+      "area": [
+        "legs",
+        "balance"
+      ],
       "position": "standing",
       "equipment": "chair",
       "difficulty": "beginner",
-      "contraindications": ["severe_knee_pain", "recent_hip_surgery"],
+      "contraindications": [
+        "severe_knee_pain",
+        "recent_hip_surgery"
+      ],
       "duration_or_reps": "8 repetitions",
       "instruction_simple": "Sit at the edge of a sturdy chair. Stand up slowly using your legs, then sit back down slowly. Use armrests if needed.",
-      "gif_search_query": "sit to stand chair exercise elderly"
+      "gif_search_query": "sit to stand chair exercise elderly",
+      "session_role": "main",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_03",
       "name": "Wall Push-ups",
-      "area": ["arms", "chest"],
+      "area": [
+        "arms",
+        "chest"
+      ],
       "position": "standing",
       "equipment": "wall",
       "difficulty": "beginner",
-      "contraindications": ["shoulder_injury"],
+      "contraindications": [
+        "shoulder_injury"
+      ],
       "duration_or_reps": "8 repetitions",
       "instruction_simple": "Stand facing a wall, arm's length away. Place palms on wall, bend elbows to bring chest toward wall, then push back.",
-      "gif_search_query": "wall push up exercise seniors"
+      "gif_search_query": "wall push up exercise seniors",
+      "session_role": "main",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_04",
       "name": "Seated Front Arm Raise",
-      "area": ["arms", "shoulders"],
+      "area": [
+        "arms",
+        "shoulders"
+      ],
       "position": "seated",
       "equipment": "none",
       "difficulty": "beginner",
-      "contraindications": ["shoulder_injury"],
+      "contraindications": [
+        "shoulder_injury"
+      ],
       "duration_or_reps": "10 repetitions",
       "instruction_simple": "Sit tall. Raise both arms straight in front of you to shoulder height, then lower slowly.",
-      "gif_search_query": "seated arm raise exercise seniors"
+      "gif_search_query": "seated arm raise exercise seniors",
+      "session_role": "main",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_05",
       "name": "Seated Leg Extensions",
-      "area": ["legs"],
+      "area": [
+        "legs"
+      ],
       "position": "seated",
       "equipment": "chair",
       "difficulty": "beginner",
-      "contraindications": ["severe_knee_pain"],
+      "contraindications": [
+        "severe_knee_pain"
+      ],
       "duration_or_reps": "10 each leg",
       "instruction_simple": "Sit tall. Slowly straighten one knee until leg is out in front, hold briefly, then lower. Repeat with other leg.",
-      "gif_search_query": "seated leg extension exercise elderly"
+      "gif_search_query": "seated leg extension exercise elderly",
+      "session_role": "main",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_06",
       "name": "Standing Heel Raises",
-      "area": ["legs", "balance"],
+      "area": [
+        "legs",
+        "balance"
+      ],
       "position": "standing",
       "equipment": "chair_for_support",
       "difficulty": "beginner",
-      "contraindications": ["balance_disorder"],
+      "contraindications": [
+        "balance_disorder"
+      ],
       "duration_or_reps": "10 repetitions",
       "instruction_simple": "Stand holding the back of a chair. Rise up onto your toes, then lower slowly.",
-      "gif_search_query": "heel raises calf exercise seniors"
+      "gif_search_query": "heel raises calf exercise seniors",
+      "session_role": "main",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_07",
       "name": "Seated Torso Twist",
-      "area": ["core", "flexibility"],
+      "area": [
+        "core",
+        "flexibility"
+      ],
       "position": "seated",
       "equipment": "none",
       "difficulty": "beginner",
-      "contraindications": ["recent_back_surgery"],
+      "contraindications": [
+        "recent_back_surgery"
+      ],
       "duration_or_reps": "8 each side",
       "instruction_simple": "Sit tall, arms crossed over chest. Gently twist your upper body to one side, return to center, then twist to the other side.",
-      "gif_search_query": "seated torso twist exercise seniors"
+      "gif_search_query": "seated torso twist exercise seniors",
+      "session_role": "main",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_08",
       "name": "Standing Side Leg Raise",
-      "area": ["legs", "balance"],
+      "area": [
+        "legs",
+        "balance"
+      ],
       "position": "standing",
       "equipment": "chair_for_support",
       "difficulty": "intermediate",
-      "contraindications": ["balance_disorder", "hip_pain"],
+      "contraindications": [
+        "balance_disorder",
+        "hip_pain"
+      ],
       "duration_or_reps": "8 each leg",
       "instruction_simple": "Hold the back of a chair. Slowly lift one leg out to the side, then lower. Repeat with the other leg.",
-      "gif_search_query": "standing side leg raise exercise seniors"
+      "gif_search_query": "standing side leg raise exercise seniors",
+      "session_role": "main",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_09",
       "name": "Seated Shoulder Rolls",
-      "area": ["shoulders", "flexibility"],
+      "area": [
+        "shoulders",
+        "flexibility"
+      ],
       "position": "seated",
       "equipment": "none",
       "difficulty": "beginner",
       "contraindications": [],
       "duration_or_reps": "10 rolls each direction",
       "instruction_simple": "Sit tall. Roll your shoulders up, back, and down in a smooth circle. Then reverse direction.",
-      "gif_search_query": "seated shoulder rolls stretch seniors"
+      "gif_search_query": "seated shoulder rolls stretch seniors",
+      "session_role": "warmup",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_10",
       "name": "Seated Ankle Circles",
-      "area": ["legs", "flexibility"],
+      "area": [
+        "legs",
+        "flexibility"
+      ],
       "position": "seated",
       "equipment": "none",
       "difficulty": "beginner",
       "contraindications": [],
       "duration_or_reps": "10 circles each ankle, both directions",
       "instruction_simple": "Sit tall, lift one foot slightly off the ground. Rotate your ankle in circles. Switch feet.",
-      "gif_search_query": "seated ankle circles exercise seniors"
+      "gif_search_query": "seated ankle circles exercise seniors",
+      "session_role": "warmup",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_11",
       "name": "Standing March in Place",
-      "area": ["legs", "cardio", "balance"],
+      "area": [
+        "legs",
+        "cardio",
+        "balance"
+      ],
       "position": "standing",
       "equipment": "chair_for_support",
       "difficulty": "intermediate",
-      "contraindications": ["balance_disorder", "severe_cardiac_condition"],
+      "contraindications": [
+        "balance_disorder",
+        "severe_cardiac_condition"
+      ],
       "duration_or_reps": "30 seconds",
       "instruction_simple": "Stand near a chair for support. March in place, lifting your knees comfortably, for about 30 seconds.",
-      "gif_search_query": "standing march in place seniors exercise"
+      "gif_search_query": "standing march in place seniors exercise",
+      "session_role": "main",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_12",
       "name": "Seated Knee-to-Chest Stretch",
-      "area": ["legs", "flexibility", "back"],
+      "area": [
+        "legs",
+        "flexibility",
+        "back"
+      ],
       "position": "seated",
       "equipment": "chair",
       "difficulty": "beginner",
-      "contraindications": ["recent_hip_surgery"],
+      "contraindications": [
+        "recent_hip_surgery"
+      ],
       "duration_or_reps": "hold 10 seconds, each leg",
       "instruction_simple": "Sit tall. Use both hands to gently pull one knee toward your chest, hold, then release. Repeat with the other leg.",
-      "gif_search_query": "seated knee to chest stretch seniors"
+      "gif_search_query": "seated knee to chest stretch seniors",
+      "session_role": "cooldown",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_13",
       "name": "Standing Single-Leg Balance (Supported)",
-      "area": ["balance"],
+      "area": [
+        "balance"
+      ],
       "position": "standing",
       "equipment": "chair_for_support",
       "difficulty": "intermediate",
-      "contraindications": ["balance_disorder", "severe_vertigo"],
+      "contraindications": [
+        "balance_disorder",
+        "severe_vertigo"
+      ],
       "duration_or_reps": "hold 10 seconds, each leg",
       "instruction_simple": "Hold the back of a chair with both hands. Lift one foot slightly off the ground and balance. Switch legs.",
-      "gif_search_query": "single leg balance exercise chair support seniors"
+      "gif_search_query": "single leg balance exercise chair support seniors",
+      "session_role": "main",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_14",
       "name": "Seated Neck Stretch",
-      "area": ["flexibility", "neck"],
+      "area": [
+        "flexibility",
+        "neck"
+      ],
       "position": "seated",
       "equipment": "none",
       "difficulty": "beginner",
-      "contraindications": ["recent_neck_injury"],
+      "contraindications": [
+        "recent_neck_injury"
+      ],
       "duration_or_reps": "hold 10 seconds, each side",
       "instruction_simple": "Sit tall. Gently tilt your head toward one shoulder, hold, then return to center. Repeat on the other side.",
-      "gif_search_query": "seated neck stretch exercise seniors"
+      "gif_search_query": "seated neck stretch exercise seniors",
+      "session_role": "cooldown",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_15",
       "name": "Seated Wrist and Hand Stretch",
-      "area": ["arms", "flexibility"],
+      "area": [
+        "arms",
+        "flexibility"
+      ],
       "position": "seated",
       "equipment": "none",
       "difficulty": "beginner",
       "contraindications": [],
       "duration_or_reps": "hold 10 seconds, each hand",
       "instruction_simple": "Extend one arm forward, palm up. Use the other hand to gently pull fingers back. Switch hands.",
-      "gif_search_query": "seated wrist stretch exercise seniors"
+      "gif_search_query": "seated wrist stretch exercise seniors",
+      "session_role": "cooldown",
+      "gif_url": null,
+      "video_url": null
     },
     {
       "id": "ex_16",
       "name": "Deep Breathing Cooldown",
-      "area": ["cooldown"],
+      "area": [
+        "cooldown"
+      ],
       "position": "seated",
       "equipment": "none",
       "difficulty": "beginner",
       "contraindications": [],
       "duration_or_reps": "5 slow breaths",
       "instruction_simple": "Sit comfortably. Breathe in slowly through your nose for 4 counts, hold for 2, breathe out for 4. Repeat 5 times.",
-      "gif_search_query": "deep breathing relaxation seniors"
+      "gif_search_query": "deep breathing relaxation seniors",
+      "session_role": "cooldown",
+      "gif_url": null,
+      "video_url": null
     }
   ]
 }

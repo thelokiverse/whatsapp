@@ -1,7 +1,7 @@
 const { pool } = require('../config/db');
-const { sendText } = require('../whatsapp/client');
+const { sendText, sendInteractiveButtons, sendVideo } = require('../whatsapp/client');
 const { logMessage } = require('./messageLog');
-const { classifyIntent } = require('./intent');
+const { classifyIntent, intentFromButtonId } = require('./intent');
 const { selectExercisesForToday } = require('./planSelection');
 const { localDateString, localTimeString, addDaysToDateString } = require('../utils/time');
 
@@ -10,6 +10,19 @@ const CUTOFF_TIME = '21:30'; // no further nagging past this local time
 
 async function sendAndLog(recipient, body) {
   const messageId = await sendText(recipient.phone_number, body);
+  await logMessage({
+    careRecipientId: recipient.id,
+    direction: 'out',
+    body,
+    whatsappMessageId: messageId,
+  });
+  return messageId;
+}
+
+// header: optional { type: 'video', mediaId } - passed straight through to
+// sendInteractiveButtons; omitted for exercises with no resolved media yet.
+async function sendButtonsAndLog(recipient, body, buttons, header) {
+  const messageId = await sendInteractiveButtons(recipient.phone_number, body, buttons, header);
   await logMessage({
     careRecipientId: recipient.id,
     direction: 'out',
@@ -46,8 +59,11 @@ async function createTodayPlan(recipient) {
 }
 
 async function sendInitialPrompt(recipient, plan) {
-  const body = `Hi ${recipient.name}! Time for your evening exercises. Ready to start? Reply YES to begin.`;
-  await sendAndLog(recipient, body);
+  const body = `Hi ${recipient.name}! Time for your evening exercises. Ready to start?`;
+  await sendButtonsAndLog(recipient, body, [
+    { id: 'yes', title: "Yes, let's go" },
+    { id: 'not_now', title: 'Not now' },
+  ]);
   const { rows } = await pool.query(
     `update daily_plans set status = 'sent', prompt_sent_at = now() where id = $1 returning *`,
     [plan.id]
@@ -64,8 +80,24 @@ async function sendExerciseAtIndex(recipient, plan, index) {
   const exerciseId = plan.exercise_ids[index];
   const exercise = await getExercise(exerciseId);
 
-  const body = `${exercise.name}\n${exercise.instruction_simple}\n${exercise.duration_or_reps}.\nReply DONE when finished, or SKIP to move on.`;
-  await sendAndLog(recipient, body);
+  const body = `${exercise.name}\n${exercise.instruction_simple}\n${exercise.duration_or_reps}.`;
+  // No gif_url/video_url exist on any exercise yet (Phase 6 ships against the old
+  // fixed library, whose entries are all null) - header stays omitted here, and
+  // starts getting populated once Phase 7's exercise_catalog + media cache land.
+  const header = exercise.video_media_id
+    ? { type: 'video', mediaId: exercise.video_media_id }
+    : undefined;
+
+  await sendButtonsAndLog(
+    recipient,
+    body,
+    [
+      { id: 'done', title: 'Done' },
+      { id: 'skip', title: 'Skip' },
+      { id: 'watch_video', title: 'Watch Video' },
+    ],
+    header
+  );
 
   await pool.query(
     `insert into session_logs (daily_plan_id, exercise_id, sent_at) values ($1, $2, now())`,
@@ -75,6 +107,16 @@ async function sendExerciseAtIndex(recipient, plan, index) {
   if (plan.status !== 'in_progress') {
     await pool.query(`update daily_plans set status = 'in_progress' where id = $1`, [plan.id]);
   }
+}
+
+async function currentSessionLog(planId) {
+  const { rows } = await pool.query(
+    `select * from session_logs where daily_plan_id = $1
+     and completed_at is null and skipped = false
+     order by sent_at desc limit 1`,
+    [planId]
+  );
+  return rows[0] || null;
 }
 
 async function computeStreak(recipient) {
@@ -119,32 +161,49 @@ async function advancePlan(recipient, plan) {
   }
 }
 
-async function handleInboundReply(recipient, text) {
+async function handleWatchVideo(recipient, plan) {
+  const currentLog = await currentSessionLog(plan.id);
+  const exercise = currentLog ? await getExercise(currentLog.exercise_id) : null;
+
+  if (exercise?.video_media_id) {
+    await sendVideo(recipient.phone_number, exercise.video_media_id, exercise.name);
+    await logMessage({
+      careRecipientId: recipient.id,
+      direction: 'out',
+      body: `[video] ${exercise.name}`,
+      whatsappMessageId: null,
+    });
+  } else {
+    await sendAndLog(recipient, "No video for this one yet - but you've got the instructions above. Reply DONE or SKIP whenever you're ready.");
+  }
+  // Watching doesn't advance the plan - they still need to reply DONE/SKIP after.
+}
+
+async function handleInboundReply(recipient, inbound) {
   const plan = await getTodayPlan(recipient);
   if (!plan) {
-    await sendAndLog(recipient, "There's nothing scheduled right now. We'll message you at your usual time.");
+    await sendAndLog(recipient, "Nothing scheduled right now - we'll message you at your usual time.");
     return;
   }
 
-  const intent = classifyIntent(text);
+  const intent = inbound.source === 'button'
+    ? intentFromButtonId(inbound.buttonId)
+    : classifyIntent(inbound.rawText);
 
   if (plan.status === 'sent') {
     if (intent === 'YES') {
       await advancePlan(recipient, plan);
+    } else if (intent === 'NOT_NOW') {
+      // Leave status as 'sent' - the existing follow-up nudge still fires later.
+      await sendAndLog(recipient, 'No problem! We\'ll be here whenever you\'re ready today.');
     } else {
-      await sendAndLog(recipient, 'Reply YES when you are ready to start today\'s exercises.');
+      await sendAndLog(recipient, 'Whenever you\'re ready, just tap "Yes, let\'s go" to start today\'s exercises.');
     }
     return;
   }
 
   if (plan.status === 'in_progress') {
-    const { rows } = await pool.query(
-      `select * from session_logs where daily_plan_id = $1
-       and completed_at is null and skipped = false
-       order by sent_at desc limit 1`,
-      [plan.id]
-    );
-    const currentLog = rows[0];
+    const currentLog = await currentSessionLog(plan.id);
 
     if (intent === 'DONE') {
       if (currentLog) {
@@ -156,14 +215,16 @@ async function handleInboundReply(recipient, text) {
         await pool.query('update session_logs set skipped = true where id = $1', [currentLog.id]);
       }
       await advancePlan(recipient, plan);
+    } else if (intent === 'WATCH_VIDEO') {
+      await handleWatchVideo(recipient, plan);
     } else {
-      await sendAndLog(recipient, 'Sorry, I did not understand. Reply DONE when you finish, or SKIP to move on.');
+      await sendAndLog(recipient, 'Tap Done when you finish, or Skip to move on.');
     }
     return;
   }
 
   // status is completed / no_response / skipped - nothing left to do today
-  await sendAndLog(recipient, "You're all done for today. See you tomorrow!");
+  await sendAndLog(recipient, "You're all done for today - see you tomorrow!");
 }
 
 async function triggerDailyForRecipient(recipient) {
@@ -194,10 +255,12 @@ async function checkFollowupsForRecipient(recipient) {
   const hoursSincePrompt = Date.now() - sentAt.getTime();
 
   if (!plan.followup_sent_at && hoursSincePrompt >= FOLLOWUP_AFTER_MS) {
-    await sendAndLog(
-      recipient,
-      'No rush - still want to do today\'s exercises? Reply YES anytime before bed.'
-    );
+    // Re-send as buttons (not plain text) - consistent with the rest of the
+    // flow, and avoids stale copy telling them to type a word for a button.
+    await sendButtonsAndLog(recipient, 'No rush - still want to do today\'s exercises?', [
+      { id: 'yes', title: "Yes, let's go" },
+      { id: 'not_now', title: 'Not now' },
+    ]);
     await pool.query('update daily_plans set followup_sent_at = now() where id = $1', [plan.id]);
     return { recipient: recipient.name, action: 'followup_sent' };
   }

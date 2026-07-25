@@ -48,16 +48,24 @@ router.post('/webhook', async (req, res) => {
         continue;
       }
 
-      const body = message.text?.body ?? `[unsupported message type: ${message.type}]`;
+      let inbound;
+      if (message.type === 'interactive' && message.interactive?.type === 'button_reply') {
+        const buttonId = message.interactive.button_reply.id;
+        inbound = { source: 'button', buttonId, rawText: message.interactive.button_reply.title };
+      } else {
+        const rawText = message.text?.body ?? `[unsupported message type: ${message.type}]`;
+        inbound = { source: 'text', rawText };
+      }
+
       await logMessage({
         careRecipientId: recipient.id,
         direction: 'in',
-        body,
+        body: inbound.rawText,
         whatsappMessageId: message.id,
       });
-      console.log(`Logged inbound message from ${recipient.name}: "${body}"`);
+      console.log(`Logged inbound message from ${recipient.name}: "${inbound.rawText}"`);
 
-      await handleInboundReply(recipient, body);
+      await handleInboundReply(recipient, inbound);
     }
   } catch (err) {
     console.error('Webhook processing error:', err);
