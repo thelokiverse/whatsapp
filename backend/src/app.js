@@ -7,6 +7,8 @@ const webhookRouter = require('./routes/webhook');
 const triggerRouter = require('./routes/trigger');
 const authRouter = require('./routes/auth');
 const dashboardApiRouter = require('./routes/dashboardApi');
+const onboardingApiRouter = require('./routes/onboardingApi');
+const mediaProxyRouter = require('./routes/mediaProxy');
 
 const DASHBOARD_DIST = path.join(__dirname, '../../dashboard/dist');
 
@@ -20,6 +22,8 @@ function createApp() {
   app.use(triggerRouter);
   app.use(authRouter);
   app.use(dashboardApiRouter);
+  app.use(onboardingApiRouter);
+  app.use(mediaProxyRouter);
 
   // Serve the built caregiver dashboard (React SPA) from the same service.
   // Falls back silently if dist/ hasn't been built (e.g. local API-only dev).

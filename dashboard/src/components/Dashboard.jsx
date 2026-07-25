@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { getRecipients, getRecipientStats, clearToken } from '../api';
+import { Link } from 'react-router-dom';
+import { getRecipients, getRecipientStats } from '../api';
 import CalendarHeatmap from './CalendarHeatmap';
 
-export default function Dashboard({ onLoggedOut }) {
+export default function Dashboard() {
   const [recipients, setRecipients] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [days, setDays] = useState(7);
@@ -25,24 +26,14 @@ export default function Dashboard({ onLoggedOut }) {
       .catch((err) => setError(err.message));
   }, [selectedId, days]);
 
-  function handleLogout() {
-    clearToken();
-    onLoggedOut();
-  }
-
   return (
-    <div className="dashboard-page">
-      <header className="dashboard-header">
-        <h1>WhatsApp Flow</h1>
-        <button className="link-button" onClick={handleLogout}>
-          Log out
-        </button>
-      </header>
-
+    <div className="dashboard-content">
       {error && <p className="error">{error}</p>}
 
       {recipients.length === 0 ? (
-        <p>No care recipients yet.</p>
+        <p>
+          No care recipients yet. <Link to="/onboard">Add one</Link> to get started.
+        </p>
       ) : (
         <>
           <div className="controls">
@@ -65,6 +56,12 @@ export default function Dashboard({ onLoggedOut }) {
                 </button>
               ))}
             </div>
+
+            {selectedId && (
+              <Link className="link-button" to={`/recipients/${selectedId}/plan`}>
+                View exercise plan
+              </Link>
+            )}
           </div>
 
           {stats && (

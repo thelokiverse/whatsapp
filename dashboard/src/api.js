@@ -44,3 +44,48 @@ export function getRecipients() {
 export function getRecipientStats(id, days) {
   return request(`/api/recipients/${id}/stats?days=${days}`);
 }
+
+export function mapMedicalConditions(freeText) {
+  return request('/api/onboarding/map-conditions', {
+    method: 'POST',
+    body: JSON.stringify({ freeText }),
+  });
+}
+
+export function createRecipient(data) {
+  return request('/api/onboarding/create-recipient', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function generatePlan(recipientId) {
+  return request(`/api/onboarding/generate-plan/${recipientId}`, { method: 'POST' });
+}
+
+export function swapExercise(rotationId, dayOffset, exerciseIndex, newExerciseId) {
+  return request(`/api/onboarding/plan/${rotationId}/swap`, {
+    method: 'PUT',
+    body: JSON.stringify({ dayOffset, exerciseIndex, newExerciseId }),
+  });
+}
+
+export function approvePlan(rotationId) {
+  return request(`/api/onboarding/plan/${rotationId}/approve`, { method: 'POST' });
+}
+
+export function sendTestMessage(recipientId) {
+  return request(`/api/onboarding/send-test/${recipientId}`, { method: 'POST' });
+}
+
+export function getFilteredCatalog(recipientId) {
+  return request(`/api/onboarding/catalog/filtered/${recipientId}`);
+}
+
+export function getRotation(recipientId) {
+  return request(`/api/onboarding/recipients/${recipientId}/rotation`);
+}
+
+export function exerciseGifUrl(catalogId) {
+  return `${BASE_URL}/media/exercise-gif/${catalogId}`;
+}
